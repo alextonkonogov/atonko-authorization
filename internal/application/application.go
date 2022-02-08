@@ -4,21 +4,23 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/julienschmidt/httprouter"
 	"html/template"
 	"net/http"
+	"net/url"
 	"path/filepath"
+	"time"
 
 	"github.com/alextonkonogov/atonko-authorization/internal/repository"
 )
-
-var flag bool
 
 type app struct {
 	ctx    context.Context
 	dbpool *pgxpool.Pool
 	repo   *repository.Repository
+	cache  map[string]repository.User
 }
 
 func (a app) Routes(r *httprouter.Router) {
@@ -28,11 +30,18 @@ func (a app) Routes(r *httprouter.Router) {
 		a.LoginPage(rw, "")
 	})
 	r.POST("/login", a.Login)
+	r.GET("/logout", a.Logout)
 }
 
 func (a app) authorized(next httprouter.Handle) httprouter.Handle {
 	return func(rw http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		if !flag {
+		token, err := readCookie("token", r)
+		if err != nil {
+			http.Redirect(rw, r, "/login", http.StatusSeeOther)
+			return
+		}
+
+		if _, ok := a.cache[token]; !ok {
 			http.Redirect(rw, r, "/login", http.StatusSeeOther)
 			return
 		}
@@ -74,18 +83,41 @@ func (a app) Login(rw http.ResponseWriter, r *http.Request, p httprouter.Params)
 	hash := md5.Sum([]byte(password))
 	hashedPass := hex.EncodeToString(hash[:])
 
-	_, err := a.repo.Login(a.ctx, a.dbpool, login, hashedPass)
+	user, err := a.repo.Login(a.ctx, a.dbpool, login, hashedPass)
 	if err != nil {
 		a.LoginPage(rw, "Вы ввели неверный логин или пароль!")
 		return
 	}
 
-	flag = true
+	//логин и пароль совпадают, поэтому генерируем токен, пишем его в кеш и в куки
+	time64 := time.Now().Unix()
+	timeInt := string(time64)
+	token := login + password + timeInt
+
+	hashToken := md5.Sum([]byte(token))
+	hashedToken := hex.EncodeToString(hashToken[:])
+
+	a.cache[hashedToken] = user
+
+	livingTime := 60 * time.Minute
+	expiration := time.Now().Add(livingTime)
+	//кука будет жить 1 час
+	cookie := http.Cookie{Name: "token", Value: url.QueryEscape(hashedToken), Expires: expiration}
+	http.SetCookie(rw, &cookie)
 	http.Redirect(rw, r, "/", http.StatusSeeOther)
 }
 
+func (a app) Logout(rw http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	for _, v := range r.Cookies() {
+		c := http.Cookie{
+			Name:   v.Name,
+			MaxAge: -1}
+		http.SetCookie(rw, &c)
+	}
+	http.Redirect(rw, r, "/login", http.StatusSeeOther)
+}
+
 func (a app) StartPage(rw http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	flag = false
 	motivation, err := a.repo.GetRandomMotivation(a.ctx, a.dbpool)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
@@ -107,6 +139,19 @@ func (a app) StartPage(rw http.ResponseWriter, r *http.Request, p httprouter.Par
 	}
 }
 
+func readCookie(name string, r *http.Request) (value string, err error) {
+	if name == "" {
+		return value, errors.New("you are trying to read empty cookie")
+	}
+	cookie, err := r.Cookie(name)
+	if err != nil {
+		return value, err
+	}
+	str := cookie.Value
+	value, _ = url.QueryUnescape(str)
+	return value, err
+}
+
 func NewApp(ctx context.Context, dbpool *pgxpool.Pool) *app {
-	return &app{ctx, dbpool, repository.NewRepository(dbpool)}
+	return &app{ctx, dbpool, repository.NewRepository(dbpool), make(map[string]repository.User)}
 }
