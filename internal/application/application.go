@@ -5,10 +5,12 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -31,6 +33,10 @@ func (a app) Routes(r *httprouter.Router) {
 	})
 	r.POST("/login", a.Login)
 	r.GET("/logout", a.Logout)
+	r.GET("/signup", func(rw http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		a.SignupPage(rw, "")
+	})
+	r.POST("/signup", a.Signup)
 }
 
 func (a app) authorized(next httprouter.Handle) httprouter.Handle {
@@ -115,6 +121,56 @@ func (a app) Logout(rw http.ResponseWriter, r *http.Request, p httprouter.Params
 		http.SetCookie(rw, &c)
 	}
 	http.Redirect(rw, r, "/login", http.StatusSeeOther)
+}
+
+func (a app) SignupPage(rw http.ResponseWriter, message string) {
+	sp := filepath.Join("public", "html", "signup.html")
+
+	tmpl, err := template.ParseFiles(sp)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	type answer struct {
+		Message string
+	}
+	data := answer{message}
+
+	err = tmpl.ExecuteTemplate(rw, "signup", data)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
+func (a app) Signup(rw http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	name := strings.TrimSpace(r.FormValue("name"))
+	surname := strings.TrimSpace(r.FormValue("surname"))
+	login := strings.TrimSpace(r.FormValue("login"))
+	password := strings.TrimSpace(r.FormValue("password"))
+	password2 := strings.TrimSpace(r.FormValue("password2"))
+
+	if name == "" || surname == "" || login == "" || password == "" {
+		a.SignupPage(rw, "Все поля должны быть заполнены!")
+		return
+	}
+
+	if password != password2 {
+		a.SignupPage(rw, "Пароли не совпадают! Попробуйте еще")
+		return
+	}
+
+	hash := md5.Sum([]byte(password))
+	hashedPass := hex.EncodeToString(hash[:])
+
+	err := a.repo.AddNewUser(a.ctx, name, surname, login, hashedPass)
+	if err != nil {
+		a.SignupPage(rw, fmt.Sprintf("Ошибка создания пользователя: %v", err))
+		return
+	}
+
+	a.LoginPage(rw, fmt.Sprintf("%s, вы успешно зарегистрированы! Теперь вам доступен вход через страницу авторизации", name))
 }
 
 func (a app) StartPage(rw http.ResponseWriter, r *http.Request, p httprouter.Params) {

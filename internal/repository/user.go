@@ -28,3 +28,13 @@ func (r *Repository) Login(ctx context.Context, login, hashedPassword string) (u
 
 	return
 }
+
+func (r *Repository) AddNewUser(ctx context.Context, name, surname, login, hashedPassword string) (err error) {
+	_, err = r.pool.Exec(ctx, `insert into users (name, surname, login, hashed_password) values ($1, $2,$3, $4)`, name, surname, login, hashedPassword)
+	if err != nil {
+		err = fmt.Errorf("failed to exec data: %w", err)
+		return
+	}
+
+	return
+}

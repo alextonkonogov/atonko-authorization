@@ -8,12 +8,11 @@
 <body>
 
 <form id="loginForm" name="loginForm" action="/login" method="post" class="mt-4">
-    <label for="login">Логин</label>
-    <input type="login" id="login" name="login" autocomplete="on">
-
-    <label for="password">Пароль</label>
-    <input type="password" id="password" name="password" autocomplete="on">
-
+    <label for="login">Логин</label><br>
+    <input type="login" id="login" name="login" autocomplete="on"><br>
+    <label for="password">Пароль</label><br>
+    <input type="password" id="password" name="password" autocomplete="on"><br>
+    <br>
     <button type="submit" name="submitBtn">Войти</button>
 </form>
 
@@ -22,6 +21,9 @@
     {{.Message}}
 </div>
 {{end}}
+
+<br>
+<a href="/signup">Зарегистрироваться</a>
 
 </body>
 </html>
