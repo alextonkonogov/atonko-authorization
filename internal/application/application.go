@@ -13,9 +13,8 @@ import (
 )
 
 type app struct {
-	ctx    context.Context
-	dbpool *pgxpool.Pool
-	repo   *repository.Repository
+	ctx  context.Context
+	repo *repository.Repository
 }
 
 func (a app) Routes(r *httprouter.Router) {
@@ -24,7 +23,7 @@ func (a app) Routes(r *httprouter.Router) {
 }
 
 func (a app) StartPage(rw http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	motivation, err := a.repo.GetRandomMotivation(a.ctx, a.dbpool)
+	motivation, err := a.repo.GetRandomMotivation(a.ctx)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
@@ -46,5 +45,5 @@ func (a app) StartPage(rw http.ResponseWriter, r *http.Request, p httprouter.Par
 }
 
 func NewApp(ctx context.Context, dbpool *pgxpool.Pool) *app {
-	return &app{ctx, dbpool, repository.NewRepository(dbpool)}
+	return &app{ctx, repository.NewRepository(dbpool)}
 }
