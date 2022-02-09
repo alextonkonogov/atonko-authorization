@@ -5,13 +5,14 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/julienschmidt/httprouter"
 	"html/template"
 	"net/http"
 	"net/url"
 	"path/filepath"
 	"time"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/julienschmidt/httprouter"
 
 	"github.com/alextonkonogov/atonko-authorization/internal/repository"
 )
