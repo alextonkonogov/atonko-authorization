@@ -17,10 +17,9 @@ import (
 )
 
 type app struct {
-	ctx    context.Context
-	dbpool *pgxpool.Pool
-	repo   *repository.Repository
-	cache  map[string]repository.User
+	ctx   context.Context
+	repo  *repository.Repository
+	cache map[string]repository.User
 }
 
 func (a app) Routes(r *httprouter.Router) {
@@ -83,7 +82,7 @@ func (a app) Login(rw http.ResponseWriter, r *http.Request, p httprouter.Params)
 	hash := md5.Sum([]byte(password))
 	hashedPass := hex.EncodeToString(hash[:])
 
-	user, err := a.repo.Login(a.ctx, a.dbpool, login, hashedPass)
+	user, err := a.repo.Login(a.ctx, login, hashedPass)
 	if err != nil {
 		a.LoginPage(rw, "Вы ввели неверный логин или пароль!")
 		return
@@ -118,7 +117,7 @@ func (a app) Logout(rw http.ResponseWriter, r *http.Request, p httprouter.Params
 }
 
 func (a app) StartPage(rw http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	motivation, err := a.repo.GetRandomMotivation(a.ctx, a.dbpool)
+	motivation, err := a.repo.GetRandomMotivation(a.ctx)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
@@ -153,5 +152,5 @@ func readCookie(name string, r *http.Request) (value string, err error) {
 }
 
 func NewApp(ctx context.Context, dbpool *pgxpool.Pool) *app {
-	return &app{ctx, dbpool, repository.NewRepository(dbpool), make(map[string]repository.User)}
+	return &app{ctx, repository.NewRepository(dbpool), make(map[string]repository.User)}
 }
