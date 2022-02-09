@@ -3,8 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 type User struct {
@@ -15,8 +13,8 @@ type User struct {
 	Surname        string `json:"surname" db:"surname"`
 }
 
-func (r *Repository) Login(ctx context.Context, dbpool *pgxpool.Pool, login, hashedPassword string) (u User, err error) {
-	row := dbpool.QueryRow(ctx, `select id, login, name, surname from users where login = $1 AND hashed_password = $2`, login, hashedPassword)
+func (r *Repository) Login(ctx context.Context, login, hashedPassword string) (u User, err error) {
+	row := r.pool.QueryRow(ctx, `select id, login, name, surname from users where login = $1 AND hashed_password = $2`, login, hashedPassword)
 	if err != nil {
 		err = fmt.Errorf("failed to query data: %w", err)
 		return

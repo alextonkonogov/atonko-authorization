@@ -4,11 +4,12 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/julienschmidt/httprouter"
 	"html/template"
 	"net/http"
 	"path/filepath"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/julienschmidt/httprouter"
 
 	"github.com/alextonkonogov/atonko-authorization/internal/repository"
 )
@@ -16,9 +17,8 @@ import (
 var flag bool
 
 type app struct {
-	ctx    context.Context
-	dbpool *pgxpool.Pool
-	repo   *repository.Repository
+	ctx  context.Context
+	repo *repository.Repository
 }
 
 func (a app) Routes(r *httprouter.Router) {
@@ -74,7 +74,7 @@ func (a app) Login(rw http.ResponseWriter, r *http.Request, p httprouter.Params)
 	hash := md5.Sum([]byte(password))
 	hashedPass := hex.EncodeToString(hash[:])
 
-	_, err := a.repo.Login(a.ctx, a.dbpool, login, hashedPass)
+	_, err := a.repo.Login(a.ctx, login, hashedPass)
 	if err != nil {
 		a.LoginPage(rw, "Вы ввели неверный логин или пароль!")
 		return
@@ -86,7 +86,7 @@ func (a app) Login(rw http.ResponseWriter, r *http.Request, p httprouter.Params)
 
 func (a app) StartPage(rw http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	flag = false
-	motivation, err := a.repo.GetRandomMotivation(a.ctx, a.dbpool)
+	motivation, err := a.repo.GetRandomMotivation(a.ctx)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
@@ -108,5 +108,5 @@ func (a app) StartPage(rw http.ResponseWriter, r *http.Request, p httprouter.Par
 }
 
 func NewApp(ctx context.Context, dbpool *pgxpool.Pool) *app {
-	return &app{ctx, dbpool, repository.NewRepository(dbpool)}
+	return &app{ctx, repository.NewRepository(dbpool)}
 }
